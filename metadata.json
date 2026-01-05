@@ -1,0 +1,7 @@
+{
+  "name": "YearbookPro: Digital Alumni Network",
+  "description": "A high-end, production-ready digital yearbook platform featuring student profiles, friend systems, real-time chat simulations, and a robust admin dashboard with PDF export capabilities.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
