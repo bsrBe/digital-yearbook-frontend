@@ -10,6 +10,7 @@ import ProfileEditor from './components/ProfileEditor';
 import AdminDashboard from './components/AdminDashboard';
 import LoginPage from './components/LoginPage';
 import ChatSystem from './components/ChatSystem';
+import ChatPage from './components/ChatPage';
 import GalleryExport from './components/GalleryExport';
 import { Search, ArrowLeft, Heart, Share2, PenLine, ChevronDown, MessageSquare, UserPlus, UserCheck, Loader2, Download } from 'lucide-react';
 
@@ -71,6 +72,7 @@ const AppContent: React.FC = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [friendIds, setFriendIds] = useState<string[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [signatures, setSignatures] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -87,20 +89,32 @@ const AppContent: React.FC = () => {
   const fetchAllData = async () => {
     setDataLoading(true);
     try {
-      const [usersData, memoriesData, highlightsData, friendsData] = await Promise.all([
+      const [usersData, memoriesData, highlightsData, friendsData, pendingData, blockedData] = await Promise.all([
         userApi.getAll(),
         memoryApi.getAll(),
         highlightApi.getAll(),
         friendApi.getAll(),
+        friendApi.getPending(),
+        friendApi.getBlocked(),
       ]);
       setStudents(usersData);
       setMemories(memoriesData);
       setHighlights(highlightsData);
       setFriendIds(friendsData);
+      setPendingRequests(pendingData);
 
-      // Build friendship status map
       const statusMap: Record<string, FriendStatus> = {};
-      friendsData.forEach((id: string) => { statusMap[id] = 'accepted'; });
+      friendsData.forEach((id: string) => { statusMap[id.toString()] = 'accepted'; });
+      blockedData.forEach((id: string) => { statusMap[id.toString()] = 'blocked'; });
+      pendingData.forEach((req: any) => {
+        const reqId = (req.requester._id || req.requester).toString();
+        const recId = (req.recipient._id || req.recipient).toString();
+        const myId = user._id.toString();
+
+        const targetId = reqId === myId ? recId : reqId;
+        // Priority: accepted > blocked > pending
+        if (!statusMap[targetId]) statusMap[targetId] = 'pending';
+      });
       setFriendshipStatuses(statusMap);
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -108,6 +122,42 @@ const AppContent: React.FC = () => {
       setDataLoading(false);
     }
   };
+
+  // Periodic poll for social updates (friends, requests, blocked)
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [friendsData, pendingData, blockedData] = await Promise.all([
+          friendApi.getAll(),
+          friendApi.getPending(),
+          friendApi.getBlocked(),
+        ]);
+
+        setFriendIds(friendsData);
+        setPendingRequests(pendingData);
+
+        const statusMap: Record<string, FriendStatus> = {};
+        friendsData.forEach((id: string) => { statusMap[id.toString()] = 'accepted'; });
+        blockedData.forEach((id: string) => { statusMap[id.toString()] = 'blocked'; });
+        pendingData.forEach((req: any) => {
+          const reqId = (req.requester?._id || req.requester || "").toString();
+          const recId = (req.recipient?._id || req.recipient || "").toString();
+          const myId = user._id.toString();
+
+          if (!reqId || !recId) return;
+          const targetId = reqId === myId ? recId : reqId;
+          if (!statusMap[targetId]) statusMap[targetId] = 'pending';
+        });
+        setFriendshipStatuses(statusMap);
+      } catch (err) {
+        console.error('Polling failed:', err);
+      }
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Filter students
   const filteredStudents = useMemo(() => {
@@ -152,9 +202,28 @@ const AppContent: React.FC = () => {
   const handleSendFriendRequest = async (targetId: string) => {
     try {
       await friendApi.sendRequest(targetId);
-      setFriendshipStatuses(prev => ({ ...prev, [targetId]: 'pending' }));
+      await fetchAllData();
     } catch (error) {
       console.error('Failed to send friend request:', error);
+      alert((error as Error).message || 'Failed to send request');
+    }
+  };
+
+  const handleAcceptRequest = async (targetId: string) => {
+    try {
+      await friendApi.accept(targetId);
+      await fetchAllData();
+    } catch (error) {
+      console.error('Failed to accept friend request:', error);
+    }
+  };
+
+  const handleRejectRequest = async (targetId: string) => {
+    try {
+      await friendApi.reject(targetId);
+      await fetchAllData();
+    } catch (error) {
+      console.error('Failed to reject friend request:', error);
     }
   };
 
@@ -208,6 +277,9 @@ const AppContent: React.FC = () => {
         view={view} setView={setView} activeUser={activeUser as any}
         onLogout={logout}
         onSignYearbook={() => setIsSignModalOpen(true)}
+        friendRequests={pendingRequests}
+        onAcceptRequest={handleAcceptRequest}
+        onRejectRequest={handleRejectRequest}
       />
 
       <main className="flex-grow">
@@ -313,10 +385,17 @@ const AppContent: React.FC = () => {
               </div>
             )}
 
-            {view === 'chat' && selectedStudent && (
-              <div className="pt-40 pb-20 px-4">
-                <ChatSystem currentUser={activeUser as any} recipient={{ ...selectedStudent, id: selectedStudent._id } as any} onBack={() => setView('gallery')} />
-              </div>
+            {view === 'chat' && (
+              <ChatPage
+                currentUser={activeUser as any}
+                students={students}
+                friends={friendIds}
+                pendingRequests={pendingRequests}
+                friendshipStatuses={friendshipStatuses}
+                onConnect={handleSendFriendRequest}
+                onRefreshData={fetchAllData}
+                initialSelectedStudent={selectedStudent}
+              />
             )}
 
             {view === 'admin' && activeUser.role === 'ADMIN' && (
@@ -362,7 +441,7 @@ const AppContent: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-start">
               <div className="space-y-10 lg:sticky lg:top-28">
                 <div className="aspect-[3/4] rounded-[60px] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] relative bg-slate-100 group">
-                  <img src={selectedStudent.profilePhoto} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="" />
+                  <img src={selectedStudent.profilePhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(selectedStudent.fullName)}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
                 </div>
                 <div className="flex justify-center gap-6">
@@ -530,6 +609,11 @@ const InfoBlock = ({ title, items }: any) => (
     </div>
   </div>
 );
+
+export const getAvatarUrl = (name: string, photo?: string) => {
+  if (photo) return photo;
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+};
 
 // Wrap with AuthProvider
 const App: React.FC = () => (

@@ -1,7 +1,8 @@
 
-import React from 'react';
-import { GraduationCap, PenLine, LogOut, Search } from 'lucide-react';
+import React, { useState } from 'react';
+import { GraduationCap, PenLine, LogOut, Search, Bell } from 'lucide-react';
 import { User, Role } from '../types';
+import FriendRequests from './FriendRequests';
 
 interface NavbarProps {
   view: string;
@@ -9,9 +10,24 @@ interface NavbarProps {
   activeUser: User | null;
   onLogout: () => void;
   onSignYearbook: () => void;
+  friendRequests: any[];
+  onAcceptRequest: (userId: string) => void;
+  onRejectRequest: (userId: string) => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ view, setView, activeUser, onLogout, onSignYearbook }) => {
+const Navbar: React.FC<NavbarProps> = ({
+  view,
+  setView,
+  activeUser,
+  onLogout,
+  onSignYearbook,
+  friendRequests,
+  onAcceptRequest,
+  onRejectRequest
+}) => {
+  const [showRequests, setShowRequests] = useState(false);
+  const pendingIncoming = friendRequests.filter(r => (r.recipient?._id || r.recipient) === activeUser?.id && r.status === 'pending').length;
+
   return (
     <div className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
       <nav className="w-full max-w-5xl glass-panel text-slate-900 rounded-full px-8 py-4 flex items-center justify-between shadow-soft pointer-events-auto bg-white/60 backdrop-blur-xl border border-white/50">
@@ -29,6 +45,8 @@ const Navbar: React.FC<NavbarProps> = ({ view, setView, activeUser, onLogout, on
           <NavPill label="Home" active={view === 'home'} onClick={() => setView('home')} />
           <NavPill label="Gallery" active={view === 'gallery'} onClick={() => setView('gallery')} />
           <NavPill label="Memories" active={view === 'memories'} onClick={() => setView('memories')} />
+          <NavPill label="Chat" active={view === 'chat'} onClick={() => setView('chat')} />
+          <NavPill label="Profile" active={view === 'profile'} onClick={() => setView('profile')} />
           {activeUser?.role === Role.ADMIN && (
             <NavPill label="Admin" active={view === 'admin'} onClick={() => setView('admin')} isSpecial />
           )}
@@ -43,9 +61,40 @@ const Navbar: React.FC<NavbarProps> = ({ view, setView, activeUser, onLogout, on
           </button>
 
           {activeUser && (
+            <div className="relative pointer-events-auto">
+              <button
+                onClick={() => setShowRequests(!showRequests)}
+                className={`p-2 rounded-full transition-all relative ${showRequests ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+              >
+                <Bell size={20} />
+                {pendingIncoming > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                    {pendingIncoming}
+                  </span>
+                )}
+              </button>
+              {showRequests && (
+                <FriendRequests
+                  requests={friendRequests}
+                  currentUserId={activeUser.id}
+                  onAccept={(id) => {
+                    onAcceptRequest(id);
+                    setShowRequests(false);
+                  }}
+                  onReject={(id) => {
+                    onRejectRequest(id);
+                    setShowRequests(false);
+                  }}
+                  onClose={() => setShowRequests(false)}
+                />
+              )}
+            </div>
+          )}
+
+          {activeUser && (
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200/60">
               <img
-                src={activeUser.profilePhoto || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(activeUser.fullName)}
+                src={activeUser.profilePhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(activeUser.fullName)}`}
                 className="w-10 h-10 rounded-full object-cover cursor-pointer ring-2 ring-white shadow-sm hover:scale-105 transition-transform"
                 onClick={() => setView('profile')}
               />
@@ -58,10 +107,10 @@ const Navbar: React.FC<NavbarProps> = ({ view, setView, activeUser, onLogout, on
   );
 };
 
-const NavPill = ({ label, active, onClick, isSpecial }: any) => (
+const NavPill = ({ label, active, onClick, isSpecial }: { label: string, active: boolean, onClick: () => void, isSpecial?: boolean }) => (
   <button
     onClick={onClick}
-    className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-500 ${active
+    className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${active
       ? (isSpecial ? 'bg-slate-900 text-gold-400 shadow-md' : 'bg-white text-slate-900 shadow-sm')
       : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
       }`}
@@ -69,5 +118,5 @@ const NavPill = ({ label, active, onClick, isSpecial }: any) => (
     {label}
   </button>
 );
-// End of component
+
 export default Navbar;

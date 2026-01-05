@@ -99,18 +99,33 @@ export const friendApi = {
     apiFetch<null>(`/friends/reject/${userId}`, { method: 'POST' }),
   block: (userId: string) =>
     apiFetch<null>(`/friends/block/${userId}`, { method: 'POST' }),
+  unblock: (userId: string) =>
+    apiFetch<null>(`/friends/unblock/${userId}`, { method: 'POST' }),
+  getBlocked: () => apiFetch<string[]>('/friends/blocked'),
 };
 
 // ============ CHAT ============
 export const chatApi = {
   getConversation: (userId: string) => apiFetch<any[]>(`/chat/${userId}`),
-  sendMessage: (userId: string, content: string) =>
+  sendMessage: (userId: string, content: string, messageType: 'text' | 'image' = 'text', mediaUrl?: string) =>
     apiFetch<any>(`/chat/${userId}`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, messageType, mediaUrl }),
     }),
   markRead: (messageId: string) =>
     apiFetch<any>(`/chat/${messageId}/read`, { method: 'PUT' }),
+  uploadImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/chat/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message);
+    return data.data;
+  },
 };
 
 // ============ SIGNATURES ============
