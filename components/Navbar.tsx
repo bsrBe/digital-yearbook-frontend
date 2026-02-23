@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { GraduationCap, PenLine, LogOut, Search, Bell } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { GraduationCap, PenLine, LogOut, Search, Bell, Menu, X } from 'lucide-react';
 import { User, Role } from '../types';
 import FriendRequests from './FriendRequests';
 
@@ -26,6 +26,18 @@ const Navbar: React.FC<NavbarProps> = ({
   onRejectRequest
 }) => {
   const [showRequests, setShowRequests] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowRequests(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const pendingIncoming = friendRequests.filter(r => (r.recipient?._id || r.recipient) === activeUser?.id && r.status === 'pending').length;
 
   return (
@@ -52,6 +64,14 @@ const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
+        {/* Mobile Menu Toggle */}
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="md:hidden p-2 text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+
         <div className="flex items-center gap-4">
           <button
             onClick={onSignYearbook}
@@ -61,7 +81,7 @@ const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {activeUser && (
-            <div className="relative pointer-events-auto">
+            <div className="relative pointer-events-auto" ref={dropdownRef}>
               <button
                 onClick={() => setShowRequests(!showRequests)}
                 className={`p-2 rounded-full transition-all relative ${showRequests ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
@@ -103,6 +123,65 @@ const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </nav>
+
+      {/* Mobile Menu Overlay */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 top-24 z-40 bg-slate-900/10 backdrop-blur-md md:hidden animate-in fade-in duration-300"
+          onClick={() => setIsMenuOpen(false)}
+        >
+          <div
+            className="mx-4 mt-2 p-6 glass-panel rounded-[32px] shadow-2xl space-y-2 border border-white/50 animate-in slide-in-from-top-4 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            {[
+              { id: 'home', label: 'Home' },
+              { id: 'gallery', label: 'Gallery' },
+              { id: 'memories', label: 'Memories' },
+              { id: 'chat', label: 'Chat' },
+              { id: 'profile', label: 'Profile' }
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setView(item.id);
+                  setIsMenuOpen(false);
+                }}
+                className={`w-full text-left px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-widest transition-all ${view === item.id ? 'bg-slate-900 text-gold-400' : 'text-slate-600 hover:bg-white/50'
+                  }`}
+              >
+                {item.label}
+              </button>
+            ))}
+            {activeUser?.role === Role.ADMIN && (
+              <button
+                onClick={() => {
+                  setView('admin');
+                  setIsMenuOpen(false);
+                }}
+                className={`w-full text-left px-6 py-4 rounded-2xl text-sm font-bold uppercase tracking-widest transition-all ${view === 'admin' ? 'bg-slate-900 text-gold-400' : 'text-slate-600 hover:bg-white/50'
+                  }`}
+              >
+                Admin Panel
+              </button>
+            )}
+            <div className="pt-4 border-t border-slate-100 mt-4">
+              <button
+                onClick={onSignYearbook}
+                className="w-full flex items-center gap-3 px-6 py-4 text-rose-500 font-bold uppercase tracking-widest text-sm"
+              >
+                <PenLine size={18} /> Sign Yearbook
+              </button>
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-6 py-4 text-slate-400 hover:text-rose-500 font-bold uppercase tracking-widest text-sm"
+              >
+                <LogOut size={18} /> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

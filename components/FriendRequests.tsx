@@ -39,7 +39,7 @@ const FriendRequests: React.FC<FriendRequestsProps> = ({
     const outgoing = requests.filter(r => r.requester && r.recipient && (r.requester._id || r.requester) === currentUserId && r.status === 'pending');
 
     return (
-        <div className="absolute top-full mt-4 right-0 w-80 bg-white rounded-[32px] shadow-2xl border border-slate-100 overflow-hidden z-[70] animate-in fade-in zoom-in duration-300">
+        <div className="fixed sm:absolute top-24 sm:top-full left-1/2 sm:left-auto -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-4 sm:right-0 w-[calc(100vw-2rem)] sm:w-80 bg-white rounded-[32px] shadow-2xl border border-slate-100 overflow-hidden z-[70] animate-in fade-in zoom-in duration-300">
             <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                 <h3 className="font-bold text-slate-900 serif">Connections</h3>
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">

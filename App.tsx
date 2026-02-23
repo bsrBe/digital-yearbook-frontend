@@ -107,8 +107,10 @@ const AppContent: React.FC = () => {
       friendsData.forEach((id: string) => { statusMap[id.toString()] = 'accepted'; });
       blockedData.forEach((id: string) => { statusMap[id.toString()] = 'blocked'; });
       pendingData.forEach((req: any) => {
-        const reqId = (req.requester._id || req.requester).toString();
-        const recId = (req.recipient._id || req.recipient).toString();
+        const reqId = (req.requester?._id || req.requester || "").toString();
+        const recId = (req.recipient?._id || req.recipient || "").toString();
+
+        if (!reqId || !recId) return;
         const myId = user._id.toString();
 
         const targetId = reqId === myId ? recId : reqId;
@@ -356,9 +358,9 @@ const AppContent: React.FC = () => {
                 <MemoriesPage
                   memories={memories.map(m => ({
                     id: m._id,
-                    userId: m.userId._id,
-                    userName: m.userId.fullName,
-                    userPhoto: m.userId.profilePhoto,
+                    userId: m.userId?._id || 'deleted',
+                    userName: m.userId?.fullName || 'Deleted User',
+                    userPhoto: m.userId?.profilePhoto || '',
                     content: m.content,
                     timestamp: new Date(m.createdAt),
                     likes: m.likes.length,
