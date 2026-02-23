@@ -127,7 +127,7 @@ const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
         <div
-          className="fixed inset-0 top-24 z-40 bg-slate-900/10 backdrop-blur-md md:hidden animate-in fade-in duration-300"
+          className="fixed inset-0 top-24 z-40 bg-slate-900/10 backdrop-blur-md md:hidden animate-in fade-in duration-300 pointer-events-auto"
           onClick={() => setIsMenuOpen(false)}
         >
           <div
